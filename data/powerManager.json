@@ -1,0 +1,10 @@
+{
+  "powerManagerGeneralConfig": 
+    { "gpioPort4Grid":36}
+  ,
+  "influxDbConfig":
+    { "influxDbUrl":"127.0.0.1",
+      "influxDbPort":8086,
+      "influxDbName":"superWatt"
+    }
+} 

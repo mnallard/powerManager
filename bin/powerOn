@@ -1,0 +1,3 @@
+#!/bin/sh
+python3 /users/powerManager/bin/powerGridOn.py /users/powerManager/data/powerManager.json
+
