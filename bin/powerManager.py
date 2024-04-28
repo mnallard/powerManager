@@ -10,6 +10,9 @@ import socket
 import select
 import json
 import time
+from datetime import datetime
+
+
 from utils.functions import Functions
 from os import listdir
 from utils.powerManagerConfiguration import powerManagerConfiguration
@@ -17,8 +20,10 @@ from utils.gridPower import gridPower
 from utils.myInfluxDb import myInfluxDb
 daemonUptime = time.time()
 
-minBatCapacity=25.0
-maxBatCurrent=-25.0
+minBatCapacity=20.0
+maxBatCurrent=-100.0
+batReturnToSUB=20.0
+allowSBUBatCapacity=70.0
 
 def checkParameter(args):
    Functions.log(
@@ -31,6 +36,9 @@ def checkParameter(args):
 
 
 def main():
+   condToSBU=0
+   SBUset=0
+   onlySolar=True
    Functions.log("INF", "Starting powerManager", "CORE")
    if checkParameter(sys.argv) == 0:
       exit(0)
@@ -43,6 +51,7 @@ def main():
       exit(1)
    Functions.log("INF", "Instantiation of new gridPowerObjet", "CORE")
    myGridPower=gridPower(powerManagerConfig.getGpioPort4Grid())
+   myGridPower.setGridOn()
    influxDbProps=dict()
    influxDbProps['host']=powerManagerConfig.getInfluxDbUrl() 
    influxDbProps['port']=powerManagerConfig.getInfluxDbPort()
@@ -51,107 +60,46 @@ def main():
    nbErrors=0
    nbResErrors=0
    GridPower=0  
+
+   dateSBU=powerManagerConfig.getSBUEvening()
    while True:
+
+      current_dateTime = datetime.now()
+      if current_dateTime.hour>=dateSBU:
+         if not SBUset and condToSBU:
+            os.system('/users/powerManager/bin/setSBUmode.sh')
+            Functions.log("INF","Setting inverter to SBU","CORE")
+            SBUset=1      
       # bat Capa
-      resDict=myDb.queryBatCapacity(1)
-      resDict2=myDb.queryBatCapacity(2)
-      if resDict['errors']==None and resDict2['errors']==None:
-         #Functions.log("INF", "The 2 requests for batteries capacity runned successfully","CORE")
-         nbErrors=0
+      resDict=myDb.queryBatCapa()
+      if resDict['errors']==None:
+         Functions.log("INF", "requests for batteries capacity runs correctly","CORE")
       else:
-         Functions.log("ERR", "requests for batteries capacity retruned on error","CORE")
-         nbErrors+=1
-  
-      if nbErrors>2:
-         Functions.log("ERR","Too much errors requesting batteries capacity. Restoring grid power","CORE")
-         myGridPower.setGridOn()
-         GridPower=1
+         Functions.log("ERR", "requests for batteries capacity returned on error","CORE")
+         sleep(60)
+         continue 
       resArray=resDict['answer']
-      resArray2=resDict2['answer'] 
-      if len(resArray) and len(resArray2):
+      if len(resArray):
          for res in resArray:
             if 'last' in res:
                cap=res['last']
+               if float(cap)<batReturnToSUB:
+                  Functions.log("WNG","Capacity of pylontech  ("+str(cap)+") reached "+str(batReturnToSUB)+ "% .Returning to SUB mode","CORE")
+                  os.system('/users/powerManager/bin/setSUBmode.sh')
+                  SBUset=0
+                  condToSBU=0
+           
                if float(cap)<minBatCapacity:
-                  if not GridPower:
-                     Functions.log("WNG","Capacity of pylontech 1 ("+str(cap)+") reached "+str(minBatCapacity)+ "% .Restoring grid power","CORE")
-                     myGridPower.setGridOn()
-                     GridPower=1
-                  else:
-                     Functions.log("INF","Capacity of pylontech 1 is "+str(cap)+"%. Grid power is on","CORE")
-               else:
-                  Functions.log("INF","Capacity of pylontech 1 ("+str(cap)+") over "+str(minBatCapacity)+ "%","CORE")
-         for res in resArray2:
-            if 'last' in res:
-               cap=res['last']
-               if float(cap)<minBatCapacity:
-                  if not GridPower:
-                     Functions.log("WNG","Capacity of pylontech 2 ("+str(cap)+") reached "+str(minBatCapacity)+ "% .Restoring grid power","CORE")
-                     myGridPower.setGridOn()
-                     GridPower=1
-                  else:
-                     Functions.log("INF","Capacity of pylontech 2 is "+str(cap)+" %. Grid power is on","CORE")
-               else:
-                  Functions.log("INF","Capacity of pylontech 2 ("+str(cap)+") over "+str(minBatCapacity)+ "%","CORE")
-         nbResErrors=0
-      else:
-         nbResErrors+=1
+                  Functions.log("WNG","Capacity of pylontech  ("+str(cap)+") reached "+str(minBatCapacity)+ "% ","CORE")
+                  os.system('/users/powerManager/bin/setSUBmode.sh')
+                  SBUset=0
+                  condToSBU=0
+               if float(cap)>allowSBUBatCapacity:
+                  Functions.log("WNG","Capacity of pylontech  ("+str(cap)+") reached "+str(minBatCapacity)+ "% . Allowing to go to SBU","CORE")
+                  condToSBU=1 
 
-      if nbResErrors>2:
-         Functions.log("ERR","No results found requesting batteries capacity. Restoring grid power","CORE")
-         myGridPower.setGridOn()
-         GridPower=1
+               Functions.log("INF", "Capacity of pylontech is now "+str(cap)+"%","CORE") 
+      time.sleep(60)
 
-      # bat Current
-
-      resDict=myDb.queryBatCurrent(1)
-      resDict2=myDb.queryBatCurrent(2)
-      if resDict['errors']==None and resDict2['errors']==None:
-         #Functions.log("INF", "The 2 requests for batteries current runned successfully","CORE")
-         nbErrors=0
-      else:
-         Functions.log("ERR", "requests for batteries current retruned on error","CORE")
-         nbErrors+=1
-
-      if nbErrors>2:
-         Functions.log("ERR","Too much errors requesting batteries current. Restoring grid power","CORE")
-         myGridPower.setGridOn()
-         GridPower=1
-      resArray=resDict['answer']
-      resArray2=resDict2['answer']
-      if len(resArray) and len(resArray2):
-         for res in resArray:
-            if 'last' in res:
-               cap=res['last']
-               if float(cap)<maxBatCurrent:
-                  if not GridPower:
-                     Functions.log("WNG","Current of pylontech 1 ("+str(cap)+"A) reached "+str(abs(maxBatCurrent))+"A discharge current. Restoring grid power to On","CORE")
-                     myGridPower.setGridOn()
-                     GridPower=1
-                  else:
-                     Functions.log("ERR","Current of pylontech 1 is "+str(cap)+"A","CORE")
-               else:
-                  Functions.log("INF","Current of pylontech 1 ("+str(cap)+"A) under "+str(abs(maxBatCurrent))+"A discharge current","CORE")
-         for res in resArray2:
-            if 'last' in res:
-               cap=res['last']
-               if float(cap)<maxBatCurrent:
-                  if not GridPower:
-                     Functions.log("WNG","Current of pylontech 2 ("+str(cap)+"A) reached "+str(abs(maxBatCurrent))+"A discharge current. Restoring grid power to On","CORE")
-                     myGridPower.setGridOn()
-                     GridPower=1
-                  else:
-                     Functions.log("ERR","Current of pylontech 2 is "+str(cap)+"A","CORE")
-               else:
-                  Functions.log("INF","Current of pylontech 2 ("+str(cap)+"A) under "+str(abs(maxBatCurrent))+"A discharge current","CORE")
-         nbResErrors=0
-      else:
-         nbResErrors+=1
-
-      if nbResErrors>2:
-         Functions.log("ERR","No results found requesting batteries capacity. Restoring grid power to On","CORE")
-         myGridPower.setGridOn()  
-         GridPower=1
-      time.sleep(10)
 if __name__ == "__main__":
     main()

@@ -3,8 +3,11 @@
     { "gpioPort4Grid":36}
   ,
   "influxDbConfig":
-    { "influxDbUrl":"127.0.0.1",
+    { "influxDbUrl":"rasp4Solar",
       "influxDbPort":8086,
       "influxDbName":"superWatt"
     }
+  ,
+  "setToSBUtime":
+    { "evening":20}
 } 

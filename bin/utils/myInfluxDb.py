@@ -38,3 +38,14 @@ class myInfluxDb:
       resDict['answer']=arrayRes
       return resDict
 
+   def queryBatCapa(self):
+      time.sleep(2)
+      result=self.clientConn.query("SELECT last(BatteryCapacity) FROM superWatt_QPIGS where time>now()-3m")
+      resDict=dict()
+      resDict['errors']=result.error
+      arrayRes=[]
+      for i in result.get_points():
+         arrayRes.append(i)
+      #Functions.log("INF","Request returned "+str(arrayRes),"myInfluxdb")
+      resDict['answer']=arrayRes
+      return resDict

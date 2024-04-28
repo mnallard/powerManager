@@ -61,7 +61,6 @@ class gridPower:
       else:
          Functions.log("ERR","Unable to set gridPower to off because of errorStatus into instance","gridPower")
 
-
    def getPowerWanted():
       return self.gridPowerWanted
 

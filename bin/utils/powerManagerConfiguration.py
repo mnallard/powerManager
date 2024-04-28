@@ -44,6 +44,10 @@ class powerManagerConfiguration:
       if not self.retreivePowerManagerGeneralConfig():
          Functions.log("DEAD", "Error getting data from conf file about general configuration for daemon", "CORE")
          return 0
+
+      if not self.retreivePowerManagerSBUTime():
+         Functions.log("DEAD", "Error getting data from conf file about SBU date", "CORE")
+         return 0
       return 1 
 
 
@@ -87,6 +91,25 @@ class powerManagerConfiguration:
          Functions.log("ERR", "Error in configuration file format", "CORE")
          return 0
       return 1
+
+   def retreivePowerManagerSBUTime(self):
+      if not self.confLoaded:
+         Functions.log("ERR", "Error configuration file not opened", "CORE")
+         return 0
+      if "setToSBUtime" in self.data_dict:
+         arr = self.data_dict['setToSBUtime']
+         if isinstance(arr, dict):
+            for confKey in arr:
+               if confKey == "evening":
+                  self.SBUEveningTime = arr["evening"]
+         else:
+            Functions.log("ERR", "Error in configuration file format", "CORE")
+            return 0
+      else:
+         Functions.log("ERR", "Error in configuration file format", "CORE")
+         return 0
+      return 1
+
    
    def getInfluxDbUrl(self):
       return self.influxDbUrl
@@ -99,4 +122,7 @@ class powerManagerConfiguration:
 
    def getGpioPort4Grid(self):
       return self.gpioPort4Grid
+
+   def getSBUEvening(self):
+      return self.SBUEveningTime
 

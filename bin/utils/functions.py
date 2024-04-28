@@ -17,11 +17,12 @@ class Functions:
     logPath="/users/powerManager/log"
     @staticmethod
     def log(level, message, source):
-        if Functions.fileLog == None:
-            if not os.path.exists(Functions.logPath):
-                os.mkdir(Functions.logPath, mode = 0o777)
+        if not os.path.exists(Functions.logPath):
+            os.mkdir(Functions.logPath, mode = 0o777)
+        try:
             Functions.fileLog = open(Functions.logPath+"/daemonP.log", "a")
-            print ("Opening "+Functions.logPath+"/daemonP.log file")
+        except Exception as err:
+            pass
         date = str(datetime.datetime.now())
         message = date + " " + \
             "[" + threading.current_thread().name + "] " + level + \

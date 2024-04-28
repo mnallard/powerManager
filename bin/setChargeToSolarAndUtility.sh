@@ -1,2 +1,2 @@
 #!/bin/sh
-/usr/bin/python3 /users/powerManager/bin/sendCommand2Inverter.py PCP02
+/users/powerManager/.venv/bin/python /users/powerManager/bin/sendCommand2Inverter.py PCP02
